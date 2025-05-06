@@ -112,7 +112,7 @@ if __name__ == "__main__":
         
         # Process video - using alternative reliable URLs for different activities
         # You can uncomment the one you want to test
-        video_url = 'https://www.youtube.com/watch?v=UPvJXBI_3V4'  # Tai Chi example
+        video_url = 'https://www.youtube.com/watch?v=8u0qjmHIOcE'  # Tai Chi example
         # video_url = 'https://www.youtube.com/watch?v=8PDEOv5C7Lw'  # Horse Racing example
         # video_url = 'https://www.youtube.com/watch?v=8u0qjmHIOcE'  # Original URL
         
