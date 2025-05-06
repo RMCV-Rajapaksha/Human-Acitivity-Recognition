@@ -14,19 +14,33 @@ SEQUENCE_LENGTH = 20
 CLASSES_LIST = ["WalkingWithDog", "TaiChi", "Swing", "HorseRace"]
 
 def download_youtube_video(url, output_path):
-    """Download YouTube video using yt-dlp."""
+    """Download YouTube video using yt-dlp with improved format handling."""
+    # First attempt with flexible format options
     ydl_opts = {
-        'format': 'best[ext=mp4]',
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'outtmpl': output_path,
-        'quiet': True
+        'quiet': False  # Set to False to see more download details
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         return True
     except Exception as e:
-        print(f"Error downloading video: {e}")
-        return False
+        print(f"Error with first attempt: {e}")
+        
+        # Second attempt with simpler options
+        try:
+            ydl_opts = {
+                'format': 'best',  # Just get the best available format
+                'outtmpl': output_path,
+                'quiet': False
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            return True
+        except Exception as e:
+            print(f"Error downloading video: {e}")
+            return False
 
 def predict_on_video(video_path, output_path, model):
     """Process video and predict actions."""
@@ -58,10 +72,13 @@ def predict_on_video(video_path, output_path, model):
             if len(frames_queue) == SEQUENCE_LENGTH:
                 frames_array = np.array(frames_queue)
                 frames_array = np.expand_dims(frames_array, axis=0)
-                predicted_labels = model.predict(frames_array)[0]
+                predicted_labels = model.predict(frames_array, verbose=0)[0]  # Added verbose=0 to reduce output
                 predicted_class = CLASSES_LIST[np.argmax(predicted_labels)]
+                confidence = np.max(predicted_labels) * 100
                 
-                cv2.putText(frame, predicted_class, (10, 30), 
+                # Display prediction with confidence
+                text = f"{predicted_class} ({confidence:.1f}%)"
+                cv2.putText(frame, text, (10, 30), 
                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             
             out.write(frame)
@@ -80,20 +97,31 @@ def predict_on_video(video_path, output_path, model):
 if __name__ == "__main__":
     try:
         # Setup
-        test_videos_directory = 'test_videos'
+        test_videos_directory = 'test_videos_new'
         os.makedirs(test_videos_directory, exist_ok=True)
         
         # Load model
         model_path = 'convlstm_model_2025_02_02__18_39_25.h5'
-        model = load_model(model_path)
+        print(f"Loading model from: {model_path}")
+        try:
+            model = load_model(model_path)
+            print("Model loaded successfully")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            sys.exit(1)
         
-        # Process video
-        video_url = 'https://www.youtube.com/watch?v=8u0qjmHIOcE'
+        # Process video - using alternative reliable URLs for different activities
+        # You can uncomment the one you want to test
+        video_url = 'https://www.youtube.com/watch?v=UPvJXBI_3V4'  # Tai Chi example
+        # video_url = 'https://www.youtube.com/watch?v=8PDEOv5C7Lw'  # Horse Racing example
+        # video_url = 'https://www.youtube.com/watch?v=8u0qjmHIOcE'  # Original URL
+        
         video_path = os.path.join(test_videos_directory, 'input_video.mp4')
         output_path = os.path.join(test_videos_directory, 'output_video.mp4')
         
-        print("Downloading video...")
+        print(f"Downloading video from: {video_url}")
         if download_youtube_video(video_url, video_path):
+            print(f"Video downloaded successfully to: {video_path}")
             print("Processing video...")
             if predict_on_video(video_path, output_path, model):
                 print(f"Video processed successfully. Output saved to: {output_path}")
@@ -101,6 +129,15 @@ if __name__ == "__main__":
                 print("Error processing video")
         else:
             print("Error downloading video")
+            
+            # Alternative: Try with a local file if available
+            local_file = input("Enter path to a local video file to try instead (or press Enter to quit): ")
+            if local_file and os.path.exists(local_file):
+                print(f"Processing local file: {local_file}")
+                if predict_on_video(local_file, output_path, model):
+                    print(f"Video processed successfully. Output saved to: {output_path}")
+                else:
+                    print("Error processing local video")
             
     except Exception as e:
         print(f"Error in main execution: {e}")
